@@ -84,13 +84,11 @@ bot.command("coupon", async (ctx) => {
     }
 
     const status = existing.used ? "usato" : "non usato";
-    await ctx.reply(
-      [
-        `Il tuo coupon: ${existing.code}`,
-        `Sconto: ${DISCOUNT_PERCENT}%`,
-        `Stato: ${status}`,
-        "Rilascio unico: ogni utente puo ricevere solo 1 coupon per sempre.",
-      ].join("\n")
+    await replyCouponCard(
+      ctx,
+      existing,
+      status,
+      ["Rilascio unico: ogni utente puo ricevere solo 1 coupon per sempre."]
     );
     return;
   }
@@ -98,12 +96,11 @@ bot.command("coupon", async (ctx) => {
   const coupon = issueCoupon(state, ctx.from);
   saveStore(state);
 
-  await ctx.reply(
-    [
-      `Fatto. Il tuo coupon: ${coupon.code}`,
-      `Sconto: ${DISCOUNT_PERCENT}%`,
-      "Salva questo codice e invialo all'amministratore durante l'acquisto.",
-    ].join("\n")
+  await replyCouponCard(
+    ctx,
+    coupon,
+    "non usato",
+    ["Salva questo codice e invialo all'amministratore durante l'acquisto."]
   );
 });
 
@@ -121,11 +118,7 @@ bot.command("mycoupon", async (ctx) => {
 
   const coupon = state.coupons[code];
   const status = coupon.used ? "usato" : "non usato";
-  await ctx.reply(
-    [`Il tuo coupon: ${coupon.code}`, `Sconto: ${DISCOUNT_PERCENT}%`, `Stato: ${status}`].join(
-      "\n"
-    )
-  );
+  await replyCouponCard(ctx, coupon, status);
 });
 
 bot.command("check", async (ctx) => {
@@ -142,7 +135,7 @@ bot.command("check", async (ctx) => {
 
   const state = loadStore();
   const result = await validateCoupon(state, code);
-  await ctx.reply(formatValidationResult(result));
+  await ctx.reply(formatValidationResult(result), { parse_mode: "HTML" });
 });
 
 bot.command("use", async (ctx) => {
@@ -160,7 +153,7 @@ bot.command("use", async (ctx) => {
   const state = loadStore();
   const validation = await validateCoupon(state, code);
   if (!validation.exists || !validation.valid) {
-    await ctx.reply(formatValidationResult(validation));
+    await ctx.reply(formatValidationResult(validation), { parse_mode: "HTML" });
     return;
   }
 
@@ -174,10 +167,15 @@ bot.command("use", async (ctx) => {
   await ctx.reply(
     [
       "Coupon riscattato: ora non e piu valido.",
-      `Codice: ${coupon.code}`,
+      `Codice: ${formatCode(coupon.code)}`,
       `Proprietario: ${formatOwner(coupon)}`,
       `Data riscatto: ${coupon.usedAt}`,
+      "",
+      "Copia rapida:",
+      formatCode(coupon.code),
     ].join("\n")
+    ,
+    { parse_mode: "HTML" }
   );
 });
 
@@ -384,16 +382,19 @@ async function validateCoupon(state, code) {
 
 function formatValidationResult(result) {
   if (!result.exists) {
-    return `Coupon ${result.code} non trovato. Stato: non valido.`;
+    return `Coupon ${formatCode(result.code)} non trovato. Stato: non valido.`;
   }
 
   if (result.reason === "used") {
     return [
       "Stato: non valido.",
       "Motivo: coupon gia usato.",
-      `Codice: ${result.coupon.code}`,
+      `Codice: ${formatCode(result.coupon.code)}`,
       `Proprietario: ${formatOwner(result.coupon)}`,
       `Usato il: ${result.coupon.usedAt || "data non disponibile"}`,
+      "",
+      "Copia rapida:",
+      formatCode(result.coupon.code),
     ].join("\n");
   }
 
@@ -401,8 +402,11 @@ function formatValidationResult(result) {
     return [
       "Stato: non valido.",
       "Motivo: il proprietario del coupon non e piu iscritto al canale.",
-      `Codice: ${result.coupon.code}`,
+      `Codice: ${formatCode(result.coupon.code)}`,
       `Proprietario: ${formatOwner(result.coupon)}`,
+      "",
+      "Copia rapida:",
+      formatCode(result.coupon.code),
     ].join("\n");
   }
 
@@ -416,14 +420,45 @@ function formatValidationResult(result) {
 
   return [
     "Stato: valido.",
-    `Codice: ${result.coupon.code}`,
+    `Codice: ${formatCode(result.coupon.code)}`,
     `Sconto: ${result.coupon.discountPercent}%`,
     `Proprietario: ${formatOwner(result.coupon)}`,
     `Emesso il: ${result.coupon.issuedAt}`,
+    "",
+    "Copia rapida:",
+    formatCode(result.coupon.code),
   ].join("\n");
 }
 
 function formatOwner(coupon) {
   const username = coupon.username ? `@${coupon.username}` : "senza username";
-  return `${username} (id: ${coupon.userId})`;
+  return `${escapeHtml(username)} (id: ${escapeHtml(coupon.userId)})`;
+}
+
+async function replyCouponCard(ctx, coupon, status, extraLines = []) {
+  const lines = [
+    `<b>Coupon sconto ${escapeHtml(String(coupon.discountPercent))}%</b>`,
+    `Codice: ${formatCode(coupon.code)}`,
+    `Stato: ${escapeHtml(status)}`,
+  ];
+
+  if (extraLines.length > 0) {
+    for (const line of extraLines) {
+      lines.push(escapeHtml(line));
+    }
+  }
+
+  lines.push("", "Copia rapida:", formatCode(coupon.code));
+  await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+}
+
+function formatCode(code) {
+  return `<code>${escapeHtml(String(code || ""))}</code>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
