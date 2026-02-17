@@ -1,0 +1,21 @@
+[Unit]
+Description=YoSupport Telegram Discount Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yosupport
+Group=yosupport
+WorkingDirectory=/opt/yosupport/app/discount-bot
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/yosupport/app/discount-bot/.env
+ExecStart=/usr/bin/node /opt/yosupport/app/discount-bot/src/index.js
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
