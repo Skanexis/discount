@@ -28,19 +28,26 @@ ensureStoreFile();
 const bot = new Telegraf(BOT_TOKEN);
 
 bot.start(async (ctx) => {
+  const lines = [
+    "Ciao.",
+    `Rilascio un coupon del ${DISCOUNT_PERCENT}% solo agli iscritti al canale.`,
+    "",
+    "Comandi:",
+    "/coupon - ottieni un coupon",
+    "/mycoupon - mostra il tuo coupon",
+  ];
+
+  if (hasAdminAccess(ctx)) {
+    lines.push(
+      "",
+      "Comandi admin:",
+      "/check CODICE - verifica la validita del coupon",
+      "/use CODICE - segna il coupon come usato"
+    );
+  }
+
   await ctx.reply(
-    [
-      "Привет.",
-      `Я выдаю купон на ${DISCOUNT_PERCENT}% только подписчикам канала.`,
-      "",
-      "Команды:",
-      "/coupon - получить купон",
-      "/mycoupon - показать ваш купон",
-      "",
-      "Админ-команды:",
-      "/check КОД - проверить валидность купона",
-      "/use КОД - отметить купон как использованный",
-    ].join("\n")
+    lines.join("\n")
   );
 });
 
@@ -52,14 +59,14 @@ bot.command("coupon", async (ctx) => {
   const subscription = await checkSubscription(ctx.from.id);
   if (!subscription.ok) {
     await ctx.reply(
-      "Не удалось проверить подписку. Убедитесь, что бот добавлен в канал и имеет права администратора."
+      "Impossibile verificare l'iscrizione. Assicurati che il bot sia nel canale e abbia i permessi di amministratore."
     );
     return;
   }
 
   if (!subscription.subscribed) {
     await ctx.reply(
-      "Вы не подписаны на канал. Подпишитесь на канал и повторите команду /coupon."
+      "Non sei iscritto al canale. Iscriviti al canale e riprova con /coupon."
     );
     return;
   }
@@ -71,18 +78,18 @@ bot.command("coupon", async (ctx) => {
     const existing = state.coupons[existingCode];
     if (!existing) {
       await ctx.reply(
-        "В системе есть запись, что вы уже получали купон. Повторная выдача запрещена."
+        "Nel sistema risulta che hai gia ricevuto un coupon. Non e possibile riceverne un altro."
       );
       return;
     }
 
-    const status = existing.used ? "использован" : "не использован";
+    const status = existing.used ? "usato" : "non usato";
     await ctx.reply(
       [
-        `Ваш купон: ${existing.code}`,
-        `Скидка: ${DISCOUNT_PERCENT}%`,
-        `Статус: ${status}`,
-        "Повторная выдача запрещена: один пользователь может получить только 1 купон навсегда.",
+        `Il tuo coupon: ${existing.code}`,
+        `Sconto: ${DISCOUNT_PERCENT}%`,
+        `Stato: ${status}`,
+        "Rilascio unico: ogni utente puo ricevere solo 1 coupon per sempre.",
       ].join("\n")
     );
     return;
@@ -93,9 +100,9 @@ bot.command("coupon", async (ctx) => {
 
   await ctx.reply(
     [
-      `Готово. Ваш купон: ${coupon.code}`,
-      `Скидка: ${DISCOUNT_PERCENT}%`,
-      "Сохраните код и отправьте его администратору при покупке.",
+      `Fatto. Il tuo coupon: ${coupon.code}`,
+      `Sconto: ${DISCOUNT_PERCENT}%`,
+      "Salva questo codice e invialo all'amministratore durante l'acquisto.",
     ].join("\n")
   );
 });
@@ -108,14 +115,14 @@ bot.command("mycoupon", async (ctx) => {
   const state = loadStore();
   const code = state.couponByUserId[String(ctx.from.id)];
   if (!code || !state.coupons[code]) {
-    await ctx.reply("У вас пока нет купона. Используйте команду /coupon.");
+    await ctx.reply("Non hai ancora un coupon. Usa il comando /coupon.");
     return;
   }
 
   const coupon = state.coupons[code];
-  const status = coupon.used ? "использован" : "не использован";
+  const status = coupon.used ? "usato" : "non usato";
   await ctx.reply(
-    [`Ваш купон: ${coupon.code}`, `Скидка: ${DISCOUNT_PERCENT}%`, `Статус: ${status}`].join(
+    [`Il tuo coupon: ${coupon.code}`, `Sconto: ${DISCOUNT_PERCENT}%`, `Stato: ${status}`].join(
       "\n"
     )
   );
@@ -123,13 +130,13 @@ bot.command("mycoupon", async (ctx) => {
 
 bot.command("check", async (ctx) => {
   if (!hasAdminAccess(ctx)) {
-    await ctx.reply("Эта команда доступна только администратору.");
+    await ctx.reply("Questo comando e disponibile solo per l'amministratore.");
     return;
   }
 
   const code = extractCommandArg(ctx.message?.text);
   if (!code) {
-    await ctx.reply("Использование: /check КОД");
+    await ctx.reply("Uso: /check CODICE");
     return;
   }
 
@@ -140,13 +147,13 @@ bot.command("check", async (ctx) => {
 
 bot.command("use", async (ctx) => {
   if (!hasAdminAccess(ctx)) {
-    await ctx.reply("Эта команда доступна только администратору.");
+    await ctx.reply("Questo comando e disponibile solo per l'amministratore.");
     return;
   }
 
   const code = extractCommandArg(ctx.message?.text);
   if (!code) {
-    await ctx.reply("Использование: /use КОД");
+    await ctx.reply("Uso: /use CODICE");
     return;
   }
 
@@ -166,10 +173,10 @@ bot.command("use", async (ctx) => {
 
   await ctx.reply(
     [
-      "Купон погашен и теперь невалиден.",
-      `Код: ${coupon.code}`,
-      `Владелец: ${formatOwner(coupon)}`,
-      `Дата погашения: ${coupon.usedAt}`,
+      "Coupon riscattato: ora non e piu valido.",
+      `Codice: ${coupon.code}`,
+      `Proprietario: ${formatOwner(coupon)}`,
+      `Data riscatto: ${coupon.usedAt}`,
     ].join("\n")
   );
 });
@@ -377,46 +384,46 @@ async function validateCoupon(state, code) {
 
 function formatValidationResult(result) {
   if (!result.exists) {
-    return `Купон ${result.code} не найден. Статус: невалидный.`;
+    return `Coupon ${result.code} non trovato. Stato: non valido.`;
   }
 
   if (result.reason === "used") {
     return [
-      "Статус: невалидный.",
-      `Причина: купон уже использован.`,
-      `Код: ${result.coupon.code}`,
-      `Владелец: ${formatOwner(result.coupon)}`,
-      `Использован: ${result.coupon.usedAt || "дата отсутствует"}`,
+      "Stato: non valido.",
+      "Motivo: coupon gia usato.",
+      `Codice: ${result.coupon.code}`,
+      `Proprietario: ${formatOwner(result.coupon)}`,
+      `Usato il: ${result.coupon.usedAt || "data non disponibile"}`,
     ].join("\n");
   }
 
   if (result.reason === "unsubscribed") {
     return [
-      "Статус: невалидный.",
-      "Причина: владелец купона отписался от канала.",
-      `Код: ${result.coupon.code}`,
-      `Владелец: ${formatOwner(result.coupon)}`,
+      "Stato: non valido.",
+      "Motivo: il proprietario del coupon non e piu iscritto al canale.",
+      `Codice: ${result.coupon.code}`,
+      `Proprietario: ${formatOwner(result.coupon)}`,
     ].join("\n");
   }
 
   if (result.reason === "subscription_check_error") {
     return [
-      "Статус: невалидный.",
-      "Причина: не удалось проверить подписку владельца купона.",
-      "Проверьте права бота в канале.",
+      "Stato: non valido.",
+      "Motivo: impossibile verificare l'iscrizione del proprietario del coupon.",
+      "Controlla i permessi del bot nel canale.",
     ].join("\n");
   }
 
   return [
-    "Статус: валидный.",
-    `Код: ${result.coupon.code}`,
-    `Скидка: ${result.coupon.discountPercent}%`,
-    `Владелец: ${formatOwner(result.coupon)}`,
-    `Выдан: ${result.coupon.issuedAt}`,
+    "Stato: valido.",
+    `Codice: ${result.coupon.code}`,
+    `Sconto: ${result.coupon.discountPercent}%`,
+    `Proprietario: ${formatOwner(result.coupon)}`,
+    `Emesso il: ${result.coupon.issuedAt}`,
   ].join("\n");
 }
 
 function formatOwner(coupon) {
-  const username = coupon.username ? `@${coupon.username}` : "без username";
+  const username = coupon.username ? `@${coupon.username}` : "senza username";
   return `${username} (id: ${coupon.userId})`;
 }
