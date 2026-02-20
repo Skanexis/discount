@@ -75,13 +75,9 @@ git push
 Сделайте на VPS ключ для пользователя, под которым будет ходить Git (ниже используется `yosupport`):
 
 ```bash
-id yosupport || sudo adduser --disabled-password --gecos "" yosupport
-YO_HOME="$(getent passwd yosupport | cut -d: -f6)"
-sudo mkdir -p "$YO_HOME/.ssh"
-sudo chown -R yosupport:yosupport "$YO_HOME"
-sudo chmod 700 "$YO_HOME/.ssh"
-sudo -u yosupport -H ssh-keygen -t ed25519 -C "yosupport-discount-vps" -f "$YO_HOME/.ssh/id_ed25519" -N ""
-sudo -u yosupport -H cat "$YO_HOME/.ssh/id_ed25519.pub"
+id yosupport || sudo useradd --system --create-home --shell /bin/bash yosupport
+    sudo -u yosupport -H ssh-keygen -t ed25519 -C "yosupport-discount-vps" -f /home/yosupport/.ssh/id_ed25519 -N ""
+sudo -u yosupport -H cat /home/yosupport/.ssh/id_ed25519.pub
 ```
 
 Скопируйте вывод `.pub` и добавьте в репозиторий как Deploy Key (read-only).  
@@ -98,7 +94,7 @@ sudo -u yosupport -H ssh -T git@github.com
 ```bash
 sudo mkdir -p /opt/yosupport/app
 sudo chown -R yosupport:yosupport /opt/yosupport
-sudo -u yosupport -H bash -lc "cd /opt/yosupport/app && git clone <YOUR_REPO_URL> discount-bot"
+sudo -u yosupport -H bash -lc "cd /opt/yosupport/app && git clone https://github.com/Skanexis/discount.git discount-bot"
 ```
 
 Устанавливаем зависимости:
